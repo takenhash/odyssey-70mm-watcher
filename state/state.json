@@ -1,9 +1,5 @@
 {
-  "latestQualifyingDateSeen": "2026-09-16",
-  "alertedKeys": [
-    "2026-09-16|404683",
-    "2026-09-16|404684",
-    "2026-09-16|404685"
-  ],
-  "updatedAt": "2026-08-07T22:32:02.070Z"
+  "latestQualifyingDateSeen": null,
+  "alertedKeys": [],
+  "updatedAt": null
 }
