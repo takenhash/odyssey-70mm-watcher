@@ -1,6 +1,8 @@
 name = "odyssey-70mm-watcher"
 main = "src/worker.ts"
 compatibility_date = "2026-08-01"
+# Cron-only worker: no public URL needed (avoids requiring a workers.dev subdomain).
+workers_dev = false
 
 [triggers]
 # Fires every minute; src/worker.ts itself decides whether this minute is a
@@ -9,7 +11,7 @@ crons = ["* * * * *"]
 
 [[kv_namespaces]]
 binding = "STATE"
-id = "REPLACE_ME_AFTER_RUNNING: npx wrangler kv namespace create STATE"
+id = "a2a69de03fe349e3aabe2e4cacf428c3"
 
 [vars]
 LOCATION_ID = "9406"

@@ -74,40 +74,44 @@ One JSON log line per event. A quiet, healthy check ends with:
 - `datesOnSale` / `lastDateOnSale` — how far ticket sales currently extend.
 - Your ntfy topic never appears in logs (it's masked to `***` + last 4 characters).
 
-## 8. Deploy for free (Cloudflare Workers — checks even while your Mac sleeps)
+## 8. Deploy for free (GitHub Actions — checks even while your Mac sleeps)
 
-Why Cloudflare: the free plan runs cron every minute with reliable timing, far better for
-catching a drop than GitHub Actions cron (5-min floor, often 5-30+ min late, silently disabled
-after 60 days of repo inactivity). A GitHub Actions fallback is included in
-`.github/workflows/watch.yml` if you ever prefer it (secret name: `NTFY_TOPIC`).
+**Why not Cloudflare Workers?** It was tried first (config still in `wrangler.toml` /
+`src/worker.ts`): Cineplex's API answers HTTP 403 to requests from Cloudflare's network while
+working fine from residential connections. We don't disguise traffic or dodge blocks, so
+Workers is out unless that changes. GitHub Actions runs from different (Azure) infrastructure
+and is the fallback: free for public repos, but cron has a 5-minute floor, is routinely
+5-30+ minutes late, and silently disables after 60 days of repo inactivity — fine for daily
+"new week of dates" drops, not for minute-level racing. For the fastest reaction while your
+Mac is awake, also run `npm run watch` locally; the shared state file prevents double alerts
+only per machine, so expect at most one duplicate notification if both fire.
 
-1. Create a free account at https://dash.cloudflare.com/sign-up (no credit card).
-2. `npx wrangler login` (opens a browser window; approve access).
-3. `npx wrangler kv namespace create STATE` → copy the printed `id` into `wrangler.toml`
-   replacing the `REPLACE_ME…` line.
-4. Set your secret (step 9) and deploy: `npx wrangler deploy`
+1. Create the repo (public — Actions minutes are unlimited free for public repos, and the repo
+   contains no secrets): `gh repo create odyssey-70mm-watcher --public --source . --push`
+2. Add the secret (step 9) and enable the schedule by pushing — the workflow is
+   `.github/workflows/watch.yml`.
+3. Manual test run: `gh workflow run "Odyssey 70mm check" && gh run watch`
 
 ## 9. Deployment secrets
 
 ```bash
-npx wrangler secret put NTFY_TOPIC
+gh secret set NTFY_TOPIC --body "$(grep '^NTFY_TOPIC=' .env | cut -d= -f2)"
 ```
 
-Paste your topic when prompted. It's stored encrypted by Cloudflare — never in code, never in
-`wrangler.toml`, never in git.
+Stored encrypted by GitHub Actions — never in the repository itself.
 
 ## 10. Test the deployed watcher
 
 ```bash
-npx wrangler tail --format=pretty
+gh workflow run "Odyssey 70mm check"
+gh run watch
 ```
 
-Leave that running; within a couple of minutes you'll see `check-complete` lines coming from
-the cloud. Real-alert drill: temporarily set `ALERT_AFTER_DATE = "2026-09-09"` in
-`wrangler.toml`, `npx wrangler deploy`, wait for the next check — your phone gets a real alert
-for existing dates — then set it back to `2026-09-16`, redeploy, and reset the state:
-`npx wrangler kv key delete state --binding STATE --remote` (clears alert history so the
-temporary test alerts don't linger as "already alerted").
+The run's log ends with a `check-complete` JSON line (see §7). Real-alert drill: in the repo's
+GitHub → Settings → Secrets/variables you can't override vars easily, so drill locally instead:
+`ALERT_AFTER_DATE=2026-09-15 npm run check` sends one real alert for Sep 16, then delete
+`state/state.json`'s `alertedKeys` entries (or `git checkout state/state.json`) so the drill
+doesn't mask a real Sep 16+ alert later.
 
 ## 11. Troubleshooting notifications
 
