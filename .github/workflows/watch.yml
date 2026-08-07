@@ -1,0 +1,40 @@
+# FALLBACK deployment (primary is Cloudflare Workers — see README).
+# GitHub Actions cron has a 5-minute floor, is routinely 5-30+ minutes late,
+# and silently disables after 60 days without repo activity. Fine as a backup,
+# not ideal for catching a ticket drop within minutes.
+name: Odyssey 70mm check
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # nominal; real cadence is usually 10-30 min
+  workflow_dispatch: {}
+
+concurrency:
+  group: odyssey-check
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      - name: Persist state (only when something new was alerted)
+        run: |
+          if [[ -n "$(git status --porcelain state/state.json)" ]]; then
+            git config user.name "odyssey-watcher"
+            git config user.email "actions@users.noreply.github.com"
+            git add state/state.json
+            git commit -m "chore: update watcher state [skip ci]"
+            git push
+          fi

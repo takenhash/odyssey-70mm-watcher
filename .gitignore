@@ -1,0 +1,8 @@
+# Secrets — never commit. Your private ntfy topic lives in .env.
+.env
+
+node_modules/
+state/runtime.json
+.wrangler/
+*.log
+.DS_Store

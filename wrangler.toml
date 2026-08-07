@@ -1,0 +1,28 @@
+name = "odyssey-70mm-watcher"
+main = "src/worker.ts"
+compatibility_date = "2026-08-01"
+
+[triggers]
+# Fires every minute; src/worker.ts itself decides whether this minute is a
+# real check (2 min cadence in release windows, 12 min otherwise, + jitter).
+crons = ["* * * * *"]
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_ME_AFTER_RUNNING: npx wrangler kv namespace create STATE"
+
+[vars]
+LOCATION_ID = "9406"
+FILM_ID = "37617"
+FILM_NAME_HINT = "odyssey"
+THEATRE_NAME = "Cinéma Banque Scotia Montréal"
+ALERT_AFTER_DATE = "2026-09-16"
+FAST_INTERVAL_MINUTES = "2"
+SLOW_INTERVAL_MINUTES = "12"
+FAST_WINDOW_DAYS = "Tue,Wed,Thu"
+FAST_WINDOW_HOURS = "07-14"
+JITTER_SECONDS = "20"
+CINEPLEX_API_KEY = "dcdac5601d864addbc2675a2e96cb1f8"
+
+# The ntfy topic is a SECRET — never put it in this file. Set it with:
+#   npx wrangler secret put NTFY_TOPIC

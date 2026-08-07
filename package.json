@@ -1,0 +1,25 @@
+{
+  "name": "odyssey-70mm-watcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "check": "tsx src/cli/check.ts",
+    "check:dry": "tsx src/cli/check.ts --dry-run",
+    "watch": "tsx src/cli/watch.ts",
+    "test": "vitest run",
+    "test-notification": "tsx src/cli/test-notification.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
