@@ -7,7 +7,12 @@ name: Odyssey 70mm check
 on:
   schedule:
     - cron: "*/10 * * * *" # nominal; real cadence is usually 10-30 min
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      alert_after:
+        description: "Drill: temporarily override ALERT_AFTER_DATE (e.g. 2026-09-15)"
+        required: false
+        default: ""
 
 concurrency:
   group: odyssey-check
@@ -29,6 +34,8 @@ jobs:
       - run: npm run check
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Dispatch-only drill override; scheduled runs always use the code default.
+          ALERT_AFTER_DATE: ${{ inputs.alert_after || '2026-09-16' }}
       - name: Persist state (only when something new was alerted)
         run: |
           if [[ -n "$(git status --porcelain state/state.json)" ]]; then
