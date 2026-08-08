@@ -9,5 +9,8 @@ const dryRun = process.argv.includes("--dry-run") || cfg.dryRun;
 if (dryRun) {
   log("info", "dry-run-mode", { note: "nothing will be sent and no state will be saved" });
 }
-const summary = await runCheck(cfg, fsStateAdapter(), dryRun);
-process.exitCode = summary.ok ? 0 : 1;
+// A failed check is logged (and, after a long outage, pushed once to your phone),
+// but it does NOT fail the process: Cineplex hiccups are routine and a red CI run
+// per hiccup just generates email noise. Bad configuration still throws above,
+// which exits non-zero and surfaces loudly.
+await runCheck(cfg, fsStateAdapter(), dryRun);

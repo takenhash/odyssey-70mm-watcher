@@ -36,12 +36,14 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           # Dispatch-only drill override; scheduled runs always use the code default.
           ALERT_AFTER_DATE: ${{ inputs.alert_after || '2026-09-16' }}
-      - name: Persist state (only when something new was alerted)
+      - name: Persist state (alerts, and the failure counter across runs)
         run: |
-          if [[ -n "$(git status --porcelain state/state.json)" ]]; then
+          if [[ -n "$(git status --porcelain state/)" ]]; then
             git config user.name "odyssey-watcher"
             git config user.email "actions@users.noreply.github.com"
-            git add state/state.json
+            git add state/
             git commit -m "chore: update watcher state [skip ci]"
-            git push
+            # Another scheduled run may have pushed first; rebase and retry once.
+            git pull --rebase --quiet || true
+            git push || (git pull --rebase --quiet && git push)
           fi

@@ -131,8 +131,14 @@ doesn't mask a real Sep 16+ alert later.
 - `cineplex-parse-error` / `suspicious-empty`: Cineplex changed the response shape. The watcher
   deliberately alerts nothing rather than guessing; re-inspect the API and update
   `src/core/cineplex.ts` (schemas at the top) — fixtures live in `tests/fixtures/`.
-- The watcher never emails/pushes errors to you; if checks fail for a long stretch and then
-  recover, you get a single "recovered" notification.
+- **Transient errors are normal.** Cineplex occasionally answers 403 to a cloud IP for a few
+  seconds. Each check retries twice with backoff, and a still-failing check is logged without
+  failing the GitHub job — so you don't get a "workflow failed" email per hiccup. Only a broken
+  *configuration* (e.g. missing `NTFY_TOPIC`) fails the job loudly.
+- **A real outage does reach you, once.** After `RECOVERY_AFTER_FAILURES` consecutive failures
+  (25 ≈ 4 hours at the deployed cadence) you get one "⚠️ watcher is failing" push, then silence,
+  then one "✅ recovered" push when it works again. The counter lives in `state/runtime.json`,
+  which the workflow commits so it survives between runs.
 
 ## Safety & respect
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Config } from "./config.js";
 import { apiDateToISO, isImax70mm, isoToApiDate, sessionTimeLabel } from "./format.js";
+import { log } from "./log.js";
 import type { QualifyingSession } from "./types.js";
 
 const API_BASE = "https://apis.cineplex.com/prod/cpx/theatrical/api/v1";
@@ -42,18 +43,35 @@ const TheatreBlockSchema = z.object({
 });
 const ShowtimesSchema = z.array(TheatreBlockSchema);
 
+/** Transient statuses worth one polite retry: edge/WAF hiccups and server errors. */
+const RETRYABLE = new Set([403, 408, 429, 500, 502, 503, 504]);
+const RETRY_DELAYS_MS = [1_500, 5_000];
+
 async function apiGet(cfg: Config, path: string): Promise<unknown> {
   const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: {
-      "ocp-apim-subscription-key": cfg.apiKey,
-      accept: "application/json",
-      "accept-language": "en-CA",
-      "user-agent": "odyssey-70mm-watcher/1.0 (personal showtime availability checker)",
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new CineplexHttpError(res.status, url);
+  let res: Response | undefined;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(url, {
+        headers: {
+          "ocp-apim-subscription-key": cfg.apiKey,
+          accept: "application/json",
+          "accept-language": "en-CA",
+          "user-agent": "odyssey-70mm-watcher/1.0 (personal showtime availability checker)",
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.ok || !RETRYABLE.has(res.status)) break;
+    } catch (networkErr) {
+      if (attempt >= RETRY_DELAYS_MS.length) throw networkErr;
+    }
+    if (attempt >= RETRY_DELAYS_MS.length) break;
+    // Back off with jitter rather than hammering — the block is usually momentary.
+    const wait = RETRY_DELAYS_MS[attempt] + Math.random() * 1_000;
+    log("warn", "cineplex-retry", { status: res?.status ?? "network-error", attempt: attempt + 1 });
+    await new Promise((r) => setTimeout(r, wait));
+  }
+  if (!res || !res.ok) throw new CineplexHttpError(res?.status ?? 0, url);
   // "Not on sale" for a date is an EMPTY body (observed live), not an error or [].
   const text = await res.text();
   if (text.trim() === "") return [];

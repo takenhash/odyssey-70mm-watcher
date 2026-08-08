@@ -16,8 +16,11 @@ export interface WatcherState {
 }
 
 export interface RuntimeState {
-  lastSuccessfulCheckAt: string | null;
+  /** Date-only (YYYY-MM-DD) so a healthy watcher rewrites this at most once a day. */
+  lastSuccessDate: string | null;
   consecutiveFailures: number;
+  /** Ensures the "watcher is down" warning is sent once per outage, not per check. */
+  downAlertSent: boolean;
 }
 
 /** Storage backend: JSON files locally, Cloudflare KV when deployed. */
@@ -43,6 +46,7 @@ export const EMPTY_STATE: WatcherState = {
 };
 
 export const EMPTY_RUNTIME: RuntimeState = {
-  lastSuccessfulCheckAt: null,
+  lastSuccessDate: null,
   consecutiveFailures: 0,
+  downAlertSent: false,
 };

@@ -34,7 +34,7 @@ export async function runCheck(cfg: Config, store: StateAdapter, dryRun: boolean
       await store.saveRuntime({ ...runtime, consecutiveFailures: runtime.consecutiveFailures + 1 });
       return {
         ok: false,
-        result: "suspicious-empty",
+        result: "suspicious-empty" as const,
         qualifyingCount: 0,
         latestKnownDate: state.latestQualifyingDateSeen ?? cfg.alertAfterDate,
         alertsSent: 0,
@@ -79,8 +79,11 @@ export async function runCheck(cfg: Config, store: StateAdapter, dryRun: boolean
       }
     }
 
-    const recovered = runtime.consecutiveFailures >= cfg.recoveryAfterFailures;
-    await store.saveRuntime({ lastSuccessfulCheckAt: new Date().toISOString(), consecutiveFailures: 0 });
+    const recovered = runtime.downAlertSent;
+    const today = new Date().toISOString().slice(0, 10);
+    if (!dryRun && (runtime.consecutiveFailures !== 0 || runtime.lastSuccessDate !== today)) {
+      await store.saveRuntime({ lastSuccessDate: today, consecutiveFailures: 0, downAlertSent: false });
+    }
     if (recovered && !dryRun) {
       await publish(cfg, {
         title: "✅ Odyssey watcher recovered",
@@ -111,12 +114,31 @@ export async function runCheck(cfg: Config, store: StateAdapter, dryRun: boolean
         : err instanceof CineplexHttpError
           ? "cineplex-http-error"
           : "unexpected-error";
+    const failures = runtime.consecutiveFailures + 1;
     log("error", kind, {
       message: err instanceof Error ? err.message : String(err),
-      consecutiveFailures: runtime.consecutiveFailures + 1,
+      consecutiveFailures: failures,
       note: "errors never trigger availability alerts",
     });
-    await store.saveRuntime({ ...runtime, consecutiveFailures: runtime.consecutiveFailures + 1 });
+    // One warning per outage once failures have persisted, then silence until recovery.
+    const shouldWarn = failures >= cfg.recoveryAfterFailures && !runtime.downAlertSent && !dryRun;
+    if (shouldWarn) {
+      try {
+        await publish(cfg, {
+          title: "⚠️ Odyssey watcher is failing",
+          body: `${failures} checks in a row failed to reach Cineplex. You will get one more message when it recovers. This is NOT a ticket alert.`,
+          priority: 3,
+          tags: ["warning"],
+        });
+      } catch {
+        // Notification failure must not mask the original error.
+      }
+    }
+    await store.saveRuntime({
+      ...runtime,
+      consecutiveFailures: failures,
+      downAlertSent: runtime.downAlertSent || shouldWarn,
+    });
     return {
       ok: false,
       result: "error",
